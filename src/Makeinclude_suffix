@@ -1,0 +1,19 @@
+# Suffix rules
+# ============
+# Dependency line= target : list of prerequisites
+# Command line   = TAB>what to do if target older than prerequisites
+# $< = current prerequisite in suffix rule
+# $@ = current target
+
+# add .f90 and .x to standard suffix list
+# ---------------------------------------
+.SUFFIXES : .x .f90
+
+# additional suffix rules
+# -----------------------
+.f90.o    :
+	${FC} ${FCFLAGS}  -c $<
+.o.x      :
+	${FC} ${FCFLAGS}  -o $@ $<
+	cd ../bin;ln -f -s ../build/$@ $@
+

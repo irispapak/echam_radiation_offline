@@ -1,0 +1,9 @@
+*.mod
+*.o
+*~
+*.x
+*.so
+data/*
+run/*
+pythonProject
+output

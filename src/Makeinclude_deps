@@ -1,0 +1,159 @@
+# List of executables
+# ===================
+programs=radiation_prog.x
+lib=library
+wrapper=wrapper
+
+# Dependencies not covered by suffix rules
+# ========================================
+
+# module objects
+# --------------
+
+mo_kind.o      : 
+mo_decomposition.o :
+mo_constants.o :  
+mo_memory_g3b.o : mo_kind.o mo_decomposition.o
+mo_io_units.o  :
+mo_exception.o : mo_io_units.o
+mo_interpo.o   : mo_kind.o
+mo_filename.o:
+mo_netcdf.o: mo_kind.o mo_exception.o mo_filename.o
+mo_read_netcdf77.o : mo_kind.o mo_exception.o mo_netcdf.o
+mo_control.o   : mo_kind.o
+mo_parameters.o :
+mo_hyb.o       : mo_kind.o mo_parameters.o
+mo_io.o: mo_filename.o mo_kind.o mo_netcdf.o 
+mo_param_switches.o:
+mo_cloud_optics.o: mo_kind.o mo_constants.o
+mo_newcld_optics.o: mo_kind.o mo_constants.o mo_netcdf.o mo_io.o  
+
+
+# > shortwave parameterization
+#   --------------------------
+mo_echam5_sw.o  : mo_kind.o mo_constants.o
+mo_rrsw_kgs.o   : mo_kind.o
+mo_srtm_config.o: mo_kind.o mo_rrsw_kgs.o
+parrrtm.o       : mo_kind.o 
+mo_srtm_taumol.o: mo_kind.o mo_rrsw_kgs.o mo_srtm_config.o
+mo_srtm.o: mo_constants.o mo_kind.o mo_srtm_config.o mo_srtm_taumol.o 
+
+
+# > longwave parameterization
+#   -------------------------
+mo_parrrtm.o   :
+mo_lrtm_kgs.o: mo_kind.o
+mo_lrtm_taumol.o: mo_kind.o mo_lrtm_kgs.o parrrtm.o
+mo_lrtm_coeffs.o: mo_kind.o mo_lrtm_taumol.o parrrtm.o
+mo_lrtm_rtrnmr.o: mo_constants.o mo_kind.o parrrtm.o
+mo_lrtm.o: mo_constants.o mo_kind.o mo_lrtm_coeffs.o mo_lrtm_rtrnmr.o \
+	mo_lrtm_taumol.o parrrtm.o
+mo_lrtm_netcdf.o: mo_io.o mo_lrtm_kgs.o mo_netcdf.o
+mo_lrtm_setup.o: mo_kind.o mo_lrtm_coeffs.o mo_lrtm_kgs.o mo_lrtm_netcdf.o \
+	mo_lrtm_rtrnmr.o parrrtm.o
+mo_rrtab.o     : mo_kind.o
+mo_rrtwn.o     : mo_kind.o
+mo_rrtftr.o    : mo_kind.o mo_parrrtm.o
+mo_rrtrf.o     : mo_kind.o
+mo_rrta_140gp.o: mo_kind.o
+mo_rrtbg2.o    : mo_kind.o
+mo_lw_clop.o   : mo_kind.o mo_parrrtm.o
+mo_cloud.o     : mo_kind.o mo_constants.o mo_control.o
+mo_tropopause.o: mo_kind.o mo_constants.o mo_cloud.o
+
+# > aerosol parametrization
+#   -----------------------
+mo_aero_kinne.o : mo_kind.o mo_decomposition.o mo_parrrtm.o mo_exception.o \
+                  mo_read_netcdf77.o mo_interpo.o mo_constants.o mo_memory_g3b.o
+
+
+# objects
+# -------
+
+# > radiation interface
+#   -------------------
+
+mo_radiation_parameters.o :  mo_kind.o mo_constants.o
+
+mo_radiation.o : mo_kind.o mo_constants.o mo_control.o mo_io_units.o mo_param_switches.o \
+                 mo_cloud_optics.o mo_newcld_optics.o mo_hyb.o mo_parrrtm.o mo_echam5_sw.o \
+                 mo_srtm_config.o mo_aero_kinne.o \
+                 mo_srtm.o mo_lrtm.o mo_lrtm_setup.o mo_radiation_parameters.o \
+                 mo_exception.o
+
+radiation_prog.o   : mo_kind.o mo_constants.o mo_radiation.o mo_cloud.o mo_newcld_optics.o mo_tropopause.o \
+                     mo_radiation_parameters.o mo_decomposition.o mo_memory_g3b.o
+
+
+# > longwave parameterization
+#   -------------------------
+
+su_rrtm.o            : mo_rrtab.o
+surrta.o             : mo_rrta_140gp.o
+surrtpk.o            : mo_kind.o mo_rrtwn.o
+surrtrf.o            : mo_kind.o mo_rrtrf.o
+surrtftr.o           : mo_kind.o mo_rrtftr.o
+surrtbg2.o           : mo_kind.o mo_rrtbg2.o
+rrtm_rrtm_140gp.o    : mo_kind.o mo_parrrtm.o
+rrtm_setcoef_140gp.o : mo_kind.o mo_parrrtm.o mo_rrtrf.o
+rrtm_gasabs1a_140gp.o: mo_kind.o mo_parrrtm.o mo_rrtab.o
+rrtm_rtrn1a_140gp.o  : mo_kind.o mo_parrrtm.o mo_rrtab.o mo_rrtwn.o mo_rrtftr.o
+rrtm_taumol_140gp.o  : mo_kind.o mo_parrrtm.o mo_rrtwn.o mo_rrta_140gp.o mo_rrtbg2.o
+
+# > shortwave parameterization
+#   --------------------------
+srtm_kgb16.o: mo_kind.o mo_rrsw_kgs.o
+srtm_kgb17.o: mo_kind.o mo_rrsw_kgs.o
+srtm_kgb18.o: mo_kind.o mo_rrsw_kgs.o
+srtm_kgb19.o: mo_kind.o mo_rrsw_kgs.o
+srtm_kgb20.o: mo_kind.o mo_rrsw_kgs.o
+srtm_kgb21.o: mo_kind.o mo_rrsw_kgs.o
+srtm_kgb22.o: mo_kind.o mo_rrsw_kgs.o
+srtm_kgb23.o: mo_kind.o mo_rrsw_kgs.o
+srtm_kgb24.o: mo_kind.o mo_rrsw_kgs.o
+srtm_kgb25.o: mo_kind.o mo_rrsw_kgs.o
+srtm_kgb26.o: mo_kind.o mo_rrsw_kgs.o
+srtm_kgb27.o: mo_kind.o mo_rrsw_kgs.o
+srtm_kgb28.o: mo_kind.o mo_rrsw_kgs.o
+srtm_kgb29.o: mo_kind.o mo_rrsw_kgs.o
+
+# executables
+# -----------
+library :          radiation_prog.o mo_radiation.o mo_radiation_parameters.o \
+                   mo_echam5_sw.o mo_rrsw_kgs.o mo_srtm_config.o mo_srtm_taumol.o \
+                   mo_srtm.o mo_parrrtm.o mo_lrtm_kgs.o mo_lrtm_taumol.o mo_lrtm_coeffs.o \
+                   mo_lrtm_rtrnmr.o mo_lrtm.o mo_filename.o mo_io.o mo_netcdf.o \
+                   mo_lrtm_netcdf.o mo_lrtm_setup.o mo_rrtab.o mo_rrtwn.o mo_rrtftr.o \
+                   mo_rrtrf.o mo_rrta_140gp.o mo_rrtbg2.o mo_lw_clop.o mo_cloud.o \
+                   mo_tropopause.o parrrtm.o su_rrtm.o surrta.o surrtpk.o surrtrf.o surrtftr.o \
+                   surrtbg2.o rrtm_rrtm_140gp.o rrtm_setcoef_140gp.o rrtm_gasabs1a_140gp.o \
+                   rrtm_rtrn1a_140gp.o rrtm_taumol_140gp.o srtm_kgb16.o srtm_kgb17.o \
+                   srtm_kgb18.o srtm_kgb19.o srtm_kgb20.o srtm_kgb21.o srtm_kgb22.o \
+                   srtm_kgb23.o srtm_kgb24.o srtm_kgb25.o srtm_kgb26.o srtm_kgb27.o \
+                   srtm_kgb28.o srtm_kgb29.o mo_kind.o mo_constants.o mo_io_units.o \
+                   mo_control.o mo_parameters.o mo_exception.o mo_decomposition.o \
+		   mo_read_netcdf77.o mo_aero_kinne.o mo_interpo.o mo_memory_g3b.o \
+                   mo_hyb.o mo_param_switches.o mo_cloud_optics.o mo_newcld_optics.o
+
+radiation_prog.x : 
+	${FC} ${FCFLAGS}  -o $@  radiation_prog.o mo_radiation.o mo_radiation_parameters.o \
+                   mo_echam5_sw.o mo_rrsw_kgs.o mo_srtm_config.o mo_srtm_taumol.o \
+                   mo_srtm.o mo_parrrtm.o mo_lrtm_kgs.o mo_lrtm_taumol.o mo_lrtm_coeffs.o \
+                   mo_lrtm_rtrnmr.o mo_lrtm.o mo_filename.o mo_io.o mo_netcdf.o \
+                   mo_lrtm_netcdf.o mo_lrtm_setup.o mo_rrtab.o mo_rrtwn.o mo_rrtftr.o \
+                   mo_rrtrf.o mo_rrta_140gp.o mo_rrtbg2.o mo_lw_clop.o mo_cloud.o \
+                   mo_tropopause.o parrrtm.o su_rrtm.o surrta.o surrtpk.o surrtrf.o surrtftr.o \
+                   surrtbg2.o rrtm_rrtm_140gp.o rrtm_setcoef_140gp.o rrtm_gasabs1a_140gp.o \
+                   rrtm_rtrn1a_140gp.o rrtm_taumol_140gp.o srtm_kgb16.o srtm_kgb17.o \
+                   srtm_kgb18.o srtm_kgb19.o srtm_kgb20.o srtm_kgb21.o srtm_kgb22.o \
+                   srtm_kgb23.o srtm_kgb24.o srtm_kgb25.o srtm_kgb26.o srtm_kgb27.o \
+                   srtm_kgb28.o srtm_kgb29.o mo_kind.o mo_constants.o mo_io_units.o \
+                   mo_control.o mo_parameters.o mo_hyb.o mo_exception.o mo_decomposition.o \
+		   mo_read_netcdf77.o mo_aero_kinne.o mo_interpo.o mo_memory_g3b.o\
+                   mo_param_switches.o mo_cloud_optics.o mo_newcld_optics.o -lnetcdff -lmpich
+	cd ../bin;rm -f $@;ln -s ../build/$@ $@
+
+
+wrapper : 
+	${F2PY} ${F2PY_FLAGS}  -c ../src/echam_radiation_python_wrapper.f90 -m echam_radiation
+	cd ../bin;rm -f echam_radiation*;ln -s ../build/echam_radiation* .
