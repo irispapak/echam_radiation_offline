@@ -19,7 +19,7 @@ CONTAINS
 
   SUBROUTINE echam_radiation_offline(lat, lon, nlev, ntime, lolandh_in, loglach_in, xl_in, xi_in, &
        & aclc_in, p0_in, rhumidity_in, cdnc_in, t_surf_in, albedo_in, t_in, q_in, ao3_in, geosp_in, &
-       & mu0, sups, supt, suptc, supsc, tdws, flt, fls, fltc, flsc)
+       & mu0_in, sups, supt, suptc, supsc, tdws, flt, fls, fltc, flsc)
 
     ! Dimensions of input data
     INTEGER, INTENT(in)   :: lat
@@ -36,7 +36,7 @@ CONTAINS
     REAL(dp), INTENT(in) :: t_surf_in(lon,lat,ntime)         ! temperature at the surface (K)
     REAL(dp), INTENT(in) :: albedo_in(lon,lat,ntime)         ! SW surface albedo
     REAL(dp), INTENT(in) :: geosp_in(lon,lat,ntime)          ! Surface geopotential (presently not used)
-    REAL(dp), INTENT(in) :: mu0(lon,lat,ntime)               ! Cosine of solar zenith angle
+    REAL(dp), INTENT(in) :: mu0_in(lon,lat,ntime)               ! Cosine of solar zenith angle
 
     ! 4D input
     REAL(dp), INTENT(in) :: xl_in(lon,lat,nlev,ntime)        ! liquid water mixing ratio (kg/kg)
@@ -128,13 +128,32 @@ CONTAINS
     REAL(dp) :: aclcov1(lon,lat,ntime)
     REAL(dp) :: dpr(lon,lat,nlev, ntime)
     REAL(dp) :: th(lon,lat,nlev+1, ntime)
-
+    REAL(dp) :: xl(lon,lat,nlev,ntime)        
+    REAL(dp) :: xi(lon,lat,nlev,ntime)        
+    REAL(dp) :: aclcac(lon,lat,nlev,ntime)    
+    REAL(dp) :: mu0(lon,lat,ntime)            
+    REAL(dp) :: rhumidity(lon,lat,nlev,ntime) 
+    REAL(dp) :: cdnc(lon,lat,nlev,ntime)      
+    REAL(dp) :: q(lon,lat,nlev,ntime)
+    
     ! Initialize some variables
-    ktype(:) =0._dp
+    ktype(:) = 0._dp
     pgeom1(:,:) = 0._dp
     pxtm1(:,:,:) = 0._dp
-    pi = 4._dp * atan(1._dp)
+    pi = 4._dp * ATAN(1._dp)
 
+    ! set negativ values to 0
+    xl(:,:,:,:) = MAX(xl_in(:,:,:,:),0._dp)
+    xi(:,:,:,:) = MAX(xi_in(:,:,:,:),0._dp)
+    aclcac(:,:,:,:) = MAX(aclc_in(:,:,:,:),EPSILON(0._dp))
+    mu0 = MAX(mu0_in(:,:,:),EPSILON(0._dp))
+    rhumidity(:,:,:,:) = MAX(rhumidity_in(:,:,:,:),EPSILON(0._dp))
+    cdnc(:,:,:,:)=MAX(cdnc_in(:,:,:,:),EPSILON(0._dp))
+    q(:,:,:,:)=MAX(q_in(:,:,:,:),0._dp)
+
+    ! Calculat sat. specific humidity
+    qs(:,:,:,:) = q(:,:,:,:)/rhumidity(:,:,:,:)
+    
     ! Initialize grid
     CALL grid_init(lon,lat,nlev,ntime)
 
@@ -157,10 +176,10 @@ CONTAINS
     io3_in=1
     io2_in=2
     in2o_in=2
-    icfc_in=2
     iaero_in=0
-    CALL setup_radiation_new(ih2o_in,ico2_in,ich4_in,io3_in,io2_in,in2o_in,icfc_in,iaero_in)
+    CALL setup_radiation_new(ih2o_in,ico2_in,ich4_in,io3_in,io2_in,in2o_in,iaero_in)
     iza = 1
+    icfc_in=0
 
 
     ! Create land-sea and glacier mask
@@ -177,22 +196,29 @@ CONTAINS
        END DO
     END DO
 
-
-    qs(:,:,:,:) = q_in(:,:,:,:)/rhumidity_in(:,:,:,:)
+    ! Initialize greenhouse gases and aerosols
     co2(:,:,:,:) = co2mmr
     ch4(:,:,:,:) = ch4mmr
     o2(:,:,:,:) = o2mmr
     ao3(:,:,:,:) = ao3_in(:,:,:,:)*amo3/amd
     n2o(:,:,:,:) = n2ommr
-    cfc(:,:,:,1,:) = cfcvmr(1)
-    cfc(:,:,:,2,:) = cfcvmr(2)
     aer(:,:,:,:,:) = 0._dp
 
+    SELECT CASE (icfc)
+    CASE (0)
+       cfc(:,:,:,:,:)=EPSILON(1._dp)
+    CASE (2)
+       cfc(:,:,:,1,:)=cfcvmr(1)
+       cfc(:,:,:,2,:)=cfcvmr(2)
+    CASE default
+       STOP 'cfc: this "icfc" is not supported'
+    END SELECT
 
-    DO i=1,ntime
+    ! Get half an full levels. This is specific to ECHAM and should be done in the python script
+    DO i=1,ntime  
        DO krow=1,lat
           DO j=1,lon
-             ph(j,krow,:,i) = vct_a(:)+ vct_b(:)* p0_in(j,krow,i)
+             ph(j,krow,:,i) = vct_a(:)+ vct_b(:)*p0_in(j,krow,i)
           END DO
        END DO
     END DO
@@ -200,28 +226,26 @@ CONTAINS
        pf(:,:,jk,:)=0.5_dp*(ph(:,:,jk,:)+ph(:,:,jk+1,:))
     END DO
 
-    ! calculate total cloud cover from cloud fraction per level
-    DO krow=1,lat
-       DO j=1,lon
-          aclcov1(j,krow,:) = 1._dp - aclc_in(j,krow,1,:)
-          DO jk = 2, nlev
-             aclcov1(j,krow,:) = aclcov1(j,krow,:)                           &
-                  &     *(1._dp-MAX(aclc_in(j,krow,jk,:),aclc_in(j,krow,jk-1,:))) &
-                  &     /(1._dp-MIN(aclc_in(j,krow,jk-1,:),1.-EPSILON(1._dp)))
-          END DO
-          aclcov(j,krow,:) = 1.-aclcov1(j,krow,:)
+    ! Calculate total cloud cover from cloud fraction per level
+    DO j=1,lon
+       aclcov1(j,1:lat,:) = 1._dp - aclcac(j,1:lat,1,:)
+       DO jk = 2, nlev
+          aclcov1(j,1:lat,:) = aclcov1(j,1:lat,:)                           &
+               &     *(1._dp-MAX(aclcac(j,1:lat,jk,:),aclcac(j,1:lat,jk-1,:))) &
+               &     /(1._dp-MIN(aclcac(j,1:lat,jk-1,:),1.-EPSILON(1._dp)))
        END DO
+       aclcov(j,1:lat,:) = 1.-aclcov1(j,1:lat,:)
     END DO
 
 
-    ! thickness of layers
+    ! Thickness of layers
     dpr(:,:,1,:)=ph(:,:,2,:)
     DO jk=2,nlev
        dpr(:,:,jk,:)=ph(:,:,jk+1,:)-ph(:,:,jk,:)
     END DO
 
 
-    ! temperature at half levels
+    ! Temperature at half levels
     ! --------------------------
     ! interpolate between full levels
     DO jk=2,nlev
@@ -232,9 +256,9 @@ CONTAINS
     ! and extrapolate to TOA and surface
     th(:,:,1,:) = t_in(:,:,1,:)-pf(:,:,1,:)*(t_in(:,:,1,:)-th(:,:,2,:))/(pf(:,:,1,:)-ph(:,:,2,:))
     th(:,:,nlev+1,:) = t_surf_in(:,:,:)
-
     
-    ! run radiation
+    
+    ! Run radiation code
     DO i=1,ntime
        DO krow=1,lat
           CALL rrtm_interface( &
@@ -244,8 +268,8 @@ CONTAINS
                & mu0(:,krow,i)             ,pgeom1                    ,albedo_in(:,krow,i)   ,albedo_in(:,krow,i)    ,&
                & albedo_in(:,krow,i)       ,albedo_in(:,krow,i)       ,albedo_in(:,krow,i)   ,albedo_in(:,krow,i)    ,&
                & pf(:,krow,:,i)            ,ph(:,krow,:,i)            ,p0_in(:,krow,i)       ,t_in(:,krow,:,i)       ,&
-               & th(:,krow,:,i)            ,t_surf_in(:,krow,i)       ,q_in(:,krow,:,i)      ,qs(:,krow,:,i)         ,&
-               & xl_in(:,krow,:,i)         ,xi_in(:,krow,:,i)         ,cdnc_in(:,krow,:,i)   ,aclc_in(:,krow,:,i)    ,&
+               & th(:,krow,:,i)            ,t_surf_in(:,krow,i)       ,q(:,krow,:,i)         ,qs(:,krow,:,i)         ,&
+               & xl(:,krow,:,i)            ,xi(:,krow,:,i)            ,cdnc(:,krow,:,i)      ,aclcac(:,krow,:,i)     ,&
                & aclcov(:,krow,i)          ,ao3(:,krow,:,i)           ,co2(:,krow,:,i)       ,ch4(:,krow,:,i)        ,&
                & n2o(:,krow,:,i)           ,cfc(:,krow,:,:,i)         ,o2(:,krow,:,i)        ,pxtm1                  ,&
                & flt(:,krow,:,i)           ,fls(:,krow,:,i)           ,fltc(:,krow,:,i)      ,flsc(:,krow,:,i)       ,&

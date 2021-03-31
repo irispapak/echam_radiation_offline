@@ -1078,7 +1078,7 @@ CONTAINS
   END SUBROUTINE rrtm_interface
 
   SUBROUTINE setup_radiation_new(ih2o_in,ico2_in,ich4_in,io3_in, &
-       & io2_in,in2o_in,icfc_in,iaero_in)
+       & io2_in,in2o_in,iaero_in)
 
     USE mo_aero_kinne,
 
@@ -1088,7 +1088,6 @@ CONTAINS
     INTEGER, INTENT(IN) :: io3_in
     INTEGER, INTENT(IN) :: io2_in
     INTEGER, INTENT(IN) :: in2o_in
-    INTEGER, INTENT(IN) :: icfc_in
     INTEGER, INTENT(IN) :: iaero_in
 
 
@@ -1099,7 +1098,6 @@ CONTAINS
     io3=io3_in
     io2=io2_in
     in2o=in2o_in
-    icfc=icfc_in
     iaero=iaero_in
 
 
