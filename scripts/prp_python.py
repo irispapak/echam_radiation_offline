@@ -135,6 +135,19 @@ f_glac = Dataset('T63GR15_glc.nc', 'r')
 f_glac.set_auto_mask(False)
 var_in['glac'] = np.squeeze(f_glac.variables['GLAC'][:])
 
+
+# This could be placed in the parallel loop to speed up computation
+var_hyb = {}
+for var in ['hyai', 'hybi', 'hyam', 'hybm']:
+    var_hyb[var] = np.squeeze(f_meteo.variables[var][:])
+# var_in['pf'] = np.zeros_like(var_in['t'])
+# var_in['ph'] = np.zeros((len(var_in['time']), len(var_in['lev'])+1, len(var_in['lat']), len(var_in['lon'])))
+# for nt in np.arange(len(var_in['time'])):
+#     for ny in np.arange(len(var_in['lat'])):
+#         for nx in np.arange(len(var_in['lon'])):
+#             var_in['pf'][nt, :, ny, nx] = var_hyb['hyam'] + var_in['aps'][nt, ny, nx] * var_hyb['hybm']
+#             var_in['ph'][nt, :, ny, nx] = var_hyb['hyai'] + var_in['aps'][nt, ny, nx] * var_hyb['hybi']
+
 # Flip the axis
 for var in var_in.keys():
     if var not in ['lat', 'lon', 'lev', 'time']:
@@ -157,6 +170,18 @@ def run_echam_radiation_offline(nt_in):
             elif len(var_in[var_use].shape) == 4:
                 var_step[var_use] = var_in[var_use][:, :, :, nt_in]
     dim_lat, dim_lon, dim_lev, dim_time = len(var_in['lat']), len(var_in['lon']), len(var_in['lev']), nt_dim
+    if 'pf' not in var_step.keys() or 'ph' not in var_step.keys():
+        var_step['pf'] = np.zeros((dim_lon, dim_lat, dim_lev, dim_time))
+        var_step['ph'] = np.zeros((dim_lon, dim_lat, dim_lev+1, dim_time))
+        for nt in np.arange(nt_dim):
+            for nx in np.arange(dim_lon):
+                for ny in np.arange(dim_lat):
+                    if nt_dim == 1:
+                        var_step['pf'][nx, ny, :, nt] = var_hyb['hyam'] + var_in['aps'][nx, ny, nt_in] * var_hyb['hybm']
+                        var_step['ph'][nx, ny, :, nt] = var_hyb['hyai'] + var_in['aps'][nx, ny, nt_in] * var_hyb['hybi']
+                    else:
+                        var_step['pf'][nx, ny, :, nt] = var_hyb['hyam'] + var_in['aps'][nx, ny, nt] * var_hyb['hybm']
+                        var_step['ph'][nx, ny, :, nt] = var_hyb['hyai'] + var_in['aps'][nx, ny, nt_in] * var_hyb['hybi']
     echam_radiation_out = echam_radiation.\
         python_wrapper.echam_radiation_offline(lat=dim_lat, lon=dim_lon, nlev=dim_lev, ntime=dim_time,
                                                lolandh_in=var_in['lsm'], loglach_in=var_in['glac'],
@@ -165,16 +190,17 @@ def run_echam_radiation_offline(nt_in):
                                                cdnc_in=var_step['acdnc'], t_surf_in=var_step['tsurf'],
                                                albedo_in=var_step['albedo'], t_in=var_step['t'], q_in=var_step['q'],
                                                ao3_in=var_step['ao3'], geosp_in=var_step['geosp'],
-                                               mu0_in=var_step['cos_zen'])
+                                               mu0_in=var_step['cos_zen'], pf=var_step['pf'], ph=var_step['ph'])
     return echam_radiation_out
 
 
-# Multi-core, presently only optimised for case where number of timesteps matches the number of timesteps
+# Multi-core, presently only working when number of cores used matches the number of timesteps
 num_cores = 4
-# rad_out = Parallel(n_jobs=num_cores)\
-#     (delayed(run_echam_radiation_offline)(nt) for nt in np.arange(len(var_in['time'])))
-# pickle.dump(rad_out, open("save.p", "wb"))
+rad_out = Parallel(n_jobs=num_cores)(delayed(run_echam_radiation_offline)(nt)
+                                     for nt in np.arange(len(var_in['time'])))
+pickle.dump(rad_out, open("save.p", "wb"))
 rad_out = pickle.load(open("save.p", "rb"))
+
 
 # Single-core
 # rad_out = run_echam_radiation_offline(np.arange(len(var_in['time'])))

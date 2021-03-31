@@ -19,7 +19,7 @@ CONTAINS
 
   SUBROUTINE echam_radiation_offline(lat, lon, nlev, ntime, lolandh_in, loglach_in, xl_in, xi_in, &
        & aclc_in, p0_in, rhumidity_in, cdnc_in, t_surf_in, albedo_in, t_in, q_in, ao3_in, geosp_in, &
-       & mu0_in, sups, supt, suptc, supsc, tdws, flt, fls, fltc, flsc)
+       & mu0_in, pf, ph, sups, supt, suptc, supsc, tdws, flt, fls, fltc, flsc)
 
     ! Dimensions of input data
     INTEGER, INTENT(in)   :: lat
@@ -47,6 +47,8 @@ CONTAINS
     REAL(dp), INTENT(in) :: t_in(lon,lat,nlev,ntime)         ! temperature (K)
     REAL(dp), INTENT(in) :: q_in(lon,lat,nlev,ntime)         ! water vapor mixing ratio (kg/kg)
     REAL(dp), INTENT(in) :: ao3_in(lon,lat,nlev,ntime)       ! O3 mass mixing ratio (kg/kg)
+    REAL(dp), INTENT(in) :: pf(lon,lat,nlev,ntime)           ! Pressure on full levels
+    REAL(dp), INTENT(in) :: ph(lon,lat,nlev+1,ntime)         ! Pressure on half levels
 
     ! ----------------
     ! output variables from radiation. Set to intent(out) for output
@@ -122,8 +124,6 @@ CONTAINS
     REAL(dp) :: n2o(lon,lat,nlev,ntime)
     REAL(dp) :: cfc(lon,lat,nlev,ncfc,ntime)
     REAL(dp) :: aer(lon,lat,nlev,naer,ntime)
-    REAL(dp) :: pf(lon,lat,nlev,ntime)
-    REAL(dp) :: ph(lon,lat,nlev+1,ntime)
     REAL(dp) :: aclcov(lon,lat,ntime)
     REAL(dp) :: aclcov1(lon,lat,ntime)
     REAL(dp) :: dpr(lon,lat,nlev, ntime)
@@ -213,18 +213,6 @@ CONTAINS
     CASE default
        STOP 'cfc: this "icfc" is not supported'
     END SELECT
-
-    ! Get half an full levels. This is specific to ECHAM and should be done in the python script
-    DO i=1,ntime  
-       DO krow=1,lat
-          DO j=1,lon
-             ph(j,krow,:,i) = vct_a(:)+ vct_b(:)*p0_in(j,krow,i)
-          END DO
-       END DO
-    END DO
-    DO jk=1,nlev
-       pf(:,:,jk,:)=0.5_dp*(ph(:,:,jk,:)+ph(:,:,jk+1,:))
-    END DO
 
     ! Calculate total cloud cover from cloud fraction per level
     DO j=1,lon
