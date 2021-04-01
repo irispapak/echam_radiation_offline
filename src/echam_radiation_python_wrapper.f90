@@ -19,7 +19,7 @@ CONTAINS
 
   SUBROUTINE echam_radiation_offline(lat, lon, nlev, ntime, lolandh_in, loglach_in, xl_in, xi_in, &
        & aclc_in, p0_in, rhumidity_in, cdnc_in, t_surf_in, albedo_in, t_in, q_in, ao3_in, geosp_in, &
-       & mu0_in, pf, ph, sups, supt, suptc, supsc, tdws, flt, fls, fltc, flsc)
+       & mu0_in, pf, ph, cdnc_cal, sups, supt, suptc, supsc, tdws, flt, fls, fltc, flsc)
 
     ! Dimensions of input data
     INTEGER, INTENT(in)   :: lat
@@ -27,6 +27,9 @@ CONTAINS
     INTEGER, INTENT(in)   :: nlev
     INTEGER, INTENT(in)   :: ntime
 
+    ! Logical input
+    LOGICAL, INTENT(in)   :: cdnc_cal
+    
     ! 2D input
     REAL(dp), INTENT(in)  :: lolandh_in(lon,lat)             ! Land-Sea fraction
     REAL(dp), INTENT(in)  :: loglach_in(lon,lat)             ! Glacier fraction
@@ -43,7 +46,7 @@ CONTAINS
     REAL(dp), INTENT(in) :: xi_in(lon,lat,nlev,ntime)        ! ice mixing ratio (kg/kg)
     REAL(dp), INTENT(in) :: aclc_in(lon,lat,nlev,ntime)      ! cloud cover fraction
     REAL(dp), INTENT(in) :: rhumidity_in(lon,lat,nlev,ntime) ! relativ humidity
-    REAL(dp), INTENT(in) :: cdnc_in(lon,lat,nlev,ntime)      ! cloud cond. nuclei (m^-3)
+    REAL(dp), INTENT(in), OPTIONAL :: cdnc_in(lon,lat,nlev,ntime)      ! cloud cond. nuclei (m^-3)
     REAL(dp), INTENT(in) :: t_in(lon,lat,nlev,ntime)         ! temperature (K)
     REAL(dp), INTENT(in) :: q_in(lon,lat,nlev,ntime)         ! water vapor mixing ratio (kg/kg)
     REAL(dp), INTENT(in) :: ao3_in(lon,lat,nlev,ntime)       ! O3 mass mixing ratio (kg/kg)
@@ -106,6 +109,7 @@ CONTAINS
 
     ! 1D
     INTEGER  :: ktype(lon)                                   ! type of convection, not used
+    REAL(dp) :: zprat, zn1, zn2
     
     ! 2D / Land/sea and glacier masks
     LOGICAL  :: loland(lon,lat)
@@ -148,7 +152,6 @@ CONTAINS
     aclcac(:,:,:,:) = MAX(aclc_in(:,:,:,:),EPSILON(0._dp))
     mu0 = MAX(mu0_in(:,:,:),EPSILON(0._dp))
     rhumidity(:,:,:,:) = MAX(rhumidity_in(:,:,:,:),EPSILON(0._dp))
-    cdnc(:,:,:,:)=MAX(cdnc_in(:,:,:,:),EPSILON(0._dp))
     q(:,:,:,:)=MAX(q_in(:,:,:,:),0._dp)
 
     ! Calculat sat. specific humidity
@@ -195,6 +198,32 @@ CONTAINS
           END IF
        END DO
     END DO
+
+    IF (.NOT. cdnc_cal) THEN
+       cdnc(:,:,:,:)=MAX(cdnc_in(:,:,:,:),EPSILON(0._dp))
+    ELSE
+       DO i=1,ntime
+          DO krow=1,lat
+             DO j=1,lon
+                IF (loland(j,krow).AND.(.NOT.loglac(j,krow))) THEN
+                   zn1 = 20._dp
+                   zn2 = 180._dp
+                ELSE
+                   zn1 = 20._dp
+                   zn2 = 80._dp
+                ENDIF
+                DO jk = 1, nlev
+                   zprat=(MIN(8._dp,80000._dp/pf(j,krow,jk,i)))**2._dp
+                   IF (pf(j,krow,jk,i) .LT. 80000._dp) THEN
+                      cdnc(j,krow,jk,i)=1.E6_dp*(zn1+(zn2-zn1)*(EXP(1._dp-zprat)))
+                   ELSE
+                      cdnc(j,krow,jk,i)=zn2*1.e6_dp
+                   END IF
+                END DO
+             END DO
+          END DO
+       END DO
+    END IF
 
     ! Initialize greenhouse gases and aerosols
     co2(:,:,:,:) = co2mmr

@@ -140,13 +140,6 @@ var_in['glac'] = np.squeeze(f_glac.variables['GLAC'][:])
 var_hyb = {}
 for var in ['hyai', 'hybi', 'hyam', 'hybm']:
     var_hyb[var] = np.squeeze(f_meteo.variables[var][:])
-# var_in['pf'] = np.zeros_like(var_in['t'])
-# var_in['ph'] = np.zeros((len(var_in['time']), len(var_in['lev'])+1, len(var_in['lat']), len(var_in['lon'])))
-# for nt in np.arange(len(var_in['time'])):
-#     for ny in np.arange(len(var_in['lat'])):
-#         for nx in np.arange(len(var_in['lon'])):
-#             var_in['pf'][nt, :, ny, nx] = var_hyb['hyam'] + var_in['aps'][nt, ny, nx] * var_hyb['hybm']
-#             var_in['ph'][nt, :, ny, nx] = var_hyb['hyai'] + var_in['aps'][nt, ny, nx] * var_hyb['hybi']
 
 # Flip the axis
 for var in var_in.keys():
@@ -187,7 +180,7 @@ def run_echam_radiation_offline(nt_in):
                                                lolandh_in=var_in['lsm'], loglach_in=var_in['glac'],
                                                xl_in=var_step['xl'], xi_in=var_step['xi'], aclc_in=var_step['aclc'],
                                                p0_in=var_step['aps'], rhumidity_in=var_step['rhumidity'],
-                                               cdnc_in=var_step['acdnc'], t_surf_in=var_step['tsurf'],
+                                               cdnc_in=var_step['acdnc'], cdnc_cal=True, t_surf_in=var_step['tsurf'],
                                                albedo_in=var_step['albedo'], t_in=var_step['t'], q_in=var_step['q'],
                                                ao3_in=var_step['ao3'], geosp_in=var_step['geosp'],
                                                mu0_in=var_step['cos_zen'], pf=var_step['pf'], ph=var_step['ph'])
@@ -200,7 +193,6 @@ rad_out = Parallel(n_jobs=num_cores)(delayed(run_echam_radiation_offline)(nt)
                                      for nt in np.arange(len(var_in['time'])))
 pickle.dump(rad_out, open("save.p", "wb"))
 rad_out = pickle.load(open("save.p", "rb"))
-
 
 # Single-core
 # rad_out = run_echam_radiation_offline(np.arange(len(var_in['time'])))
