@@ -5,7 +5,6 @@ MODULE python_wrapper
   USE mo_cloud         , ONLY: sucloud
   USE mo_memory_g3b    , ONLY: construct_g3b, geosp
   USE mo_constants     , ONLY: amd, amo3
-  USE mo_hyb           , ONLY: inihyb,vct_a,vct_b
   USE mo_radiation_parameters, ONLY: nb_sw, &
        ih2o, ico2, ich4, io3, io2, in2o, icfc,       &
        ighg, iaero, iza, co2vmr, ch4vmr, o2vmr,      &
@@ -159,9 +158,6 @@ CONTAINS
     
     ! Initialize grid
     CALL grid_init(lon,lat,nlev,ntime)
-
-    ! initialize vertical grid
-    CALL inihyb
 
     ! allocate memory for geosp
     CALL construct_g3b

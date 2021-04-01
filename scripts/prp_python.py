@@ -93,10 +93,7 @@ for var in var_in.keys():
 
 
 def run_echam_radiation_offline(nt_in):
-    if isinstance(nt_in, np.int64):
-        nt_dim = 1
-    else:
-        nt_dim = len(nt_in)
+    nt_dim = 1
     var_step = {}
     for var_use in var_in.keys():
         if var_use not in ['lat', 'lon', 'lev', 'time']:
@@ -131,15 +128,13 @@ def run_echam_radiation_offline(nt_in):
     return echam_radiation_out
 
 
-# Multi-core, presently only working when number of cores used matches the number of timesteps
-num_cores = 4
-# rad_out = Parallel(n_jobs=num_cores)(delayed(run_echam_radiation_offline)(nt)
-#                                      for nt in np.arange(len(var_in['time'])))
-# pickle.dump(rad_out, open("save.p", "wb"))
+# Multi-core
+num_cores = 3
+rad_out = Parallel(n_jobs=num_cores)(delayed(run_echam_radiation_offline)(nt)
+                                     for nt in np.arange(len(var_in['time'])))
+# Needed for debugging only
+pickle.dump(rad_out, open("save.p", "wb"))
 rad_out = pickle.load(open("save.p", "rb"))
-
-# Single-core
-# rad_out = run_echam_radiation_offline(np.arange(len(var_in['time'])))
 
 
 class OutputNetcdf:
