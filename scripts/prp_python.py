@@ -7,62 +7,6 @@ import pickle
 import datetime
 
 
-def create_var_meta(var_list):
-    var_meta_out = {}
-    for var_out in var_out_list:
-        var_meta_out[var_out] = {}
-        if var_out == 'aps':
-            var_meta_out[var_out]['unit'] = 'Pa'
-        else:
-            var_meta_out[var_out]['unit'] = 'W m-2'
-
-    # Longname
-    var_meta_out['aps']['longname'] = 'surface pressure'
-    var_meta_out['sups']['longname'] = 'surface upward shortwave flux'
-    var_meta_out['supt']['longname'] = 'surface upward longwave flux'
-    var_meta_out['supsc']['longname'] = 'surface upward shortwave flux clear-sky'
-    var_meta_out['suptc']['longname'] = 'surface upward longwave flux clear-sky'
-    var_meta_out['tdws']['longname'] = 'TOA shortwave incomming irradiation'
-    var_meta_out['flt']['longname'] = 'longwave net flux'
-    var_meta_out['fls']['longname'] = 'shortwave net flux'
-    var_meta_out['fltc']['longname'] = 'longwave net flux clear-sky'
-    var_meta_out['flsc']['longname'] = 'shortwave net flux clear-sky'
-    return var_meta_out
-
-
-def create_dimension_entry(file_write, name, dimsize):
-    file_write.createDimension(name, dimsize)
-
-
-def create_variable_entry_empty(file_write, name, dimension, **kwargs):
-    var_write = file_write.createVariable(name, 'd', dimension)
-    for key, key_value in kwargs.items():
-        if key == 'value':
-            var_write[:] = key_value
-        if key == 'units':
-            var_write.units = key_value
-        if key == 'standard_name':
-            var_write.standard_name = key_value
-        if key == 'long_name':
-            var_write.long_name = key_value
-    return var_write
-
-
-def create_variable_entry(file_write, name, dimension, values, **kwargs):
-    var_write = file_write.createVariable(name, 'd', dimension)
-    var_write[:] = values
-    for key, key_value in kwargs.items():
-        if key == 'value':
-            var_write[:] = key_value
-        if key == 'units':
-            var_write.units = key_value
-        if key == 'standard_name':
-            var_write.standard_name = key_value
-        if key == 'long_name':
-            var_write.long_name = key_value
-    return var_write
-
-
 def solar_zenith_angle_instanteous(time_in, lat_in, lon_in):
     cos_zen = np.zeros((len(time_in), len(lat_in), len(lon_in)))
     # Datetime into day of year
@@ -189,66 +133,143 @@ def run_echam_radiation_offline(nt_in):
 
 # Multi-core, presently only working when number of cores used matches the number of timesteps
 num_cores = 4
-rad_out = Parallel(n_jobs=num_cores)(delayed(run_echam_radiation_offline)(nt)
-                                     for nt in np.arange(len(var_in['time'])))
-pickle.dump(rad_out, open("save.p", "wb"))
+# rad_out = Parallel(n_jobs=num_cores)(delayed(run_echam_radiation_offline)(nt)
+#                                      for nt in np.arange(len(var_in['time'])))
+# pickle.dump(rad_out, open("save.p", "wb"))
 rad_out = pickle.load(open("save.p", "rb"))
 
 # Single-core
 # rad_out = run_echam_radiation_offline(np.arange(len(var_in['time'])))
 
 
-ofile = '../output/tmp.nc'
-f_out = Dataset(ofile, 'w')
-vars_output = {}
+class OutputNetcdf:
 
-# Dimension entries
-for dim_var in ['lat', 'lon', 'lev', 'time']:
-    if dim_var != 'time':
-        if dim_var == 'lev':
-            create_dimension_entry(f_out, dim_var, len(var_in[dim_var]) + 1)
-            create_variable_entry(f_out, dim_var, (dim_var,), np.arange(len(var_in[dim_var]) + 1),
-                                  units=f_meteo.variables[dim_var].units, standard_name=f_meteo.variables[dim_var].name)
-        else:
-            create_dimension_entry(f_out, dim_var, len(var_in[dim_var]))
-            create_variable_entry(f_out, dim_var, (dim_var,), var_in[dim_var], units=f_meteo.variables[dim_var].units,
-                                  standard_name=f_meteo.variables[dim_var].name)
-    else:
-        create_dimension_entry(f_out, dim_var, None)
-        vars_output['time'] = create_variable_entry_empty(f_out, dim_var, (dim_var,),
-                                                          units=f_meteo.variables[dim_var].units)
+    def __init__(self, ofile_in, rad_out_in, var_input):
+        self.rad_out = rad_out_in
+        self.var_in = var_input
+        self.f_out = Dataset(ofile_in, 'w')
+        self.vars_output = {}
+        self.var_meta = {}
 
-# Hybrid coefficient and surface pressure
-for hyb_var in ['hyai', 'hybi']:
-    create_variable_entry(f_out, hyb_var, ('lev',), f_meteo.variables[hyb_var][:],
-                          units=f_meteo.variables[hyb_var].units, long_name=f_meteo.variables[hyb_var].long_name)
+        # Dimension entries
+        self.write_dimension_entries()
 
-f2py_info = echam_radiation.python_wrapper.echam_radiation_offline.__doc__
-var_out_list = [x.strip() for x in f2py_info.split('\n')[0].split('=')[0].split(',')]
-var_out_list.append('aps')
+        # Hybrid coefficient and surface pressure
+        for hyb_var in ['hyai', 'hybi']:
+            self.create_variable_entry(self.f_out, hyb_var, ('lev',), f_meteo.variables[hyb_var][:],
+                                       units=f_meteo.variables[hyb_var].units,
+                                       long_name=f_meteo.variables[hyb_var].long_name)
 
-var_meta = create_var_meta(var_out_list)
-for step in np.arange(len(var_in['time'])):
-    vars_output['time'][step] = f_meteo.variables['time'][step]
-    for nv, var in enumerate(var_out_list):
-        if var == 'aps':
-            var_tmp = var_in['aps'][:, :, step]
-        else:
-            if len(rad_out) == len(var_out_list) - 1:
-                var_tmp = np.squeeze(rad_out[nv][..., step])
+        # Get name of output varibales from wrapper
+        f2py_info = echam_radiation.python_wrapper.echam_radiation_offline.__doc__
+        self.var_out_list = [x.strip() for x in f2py_info.split('\n')[0].split('=')[0].split(',')]
+        self.var_out_list.append('aps')
+
+        # Write variables to file
+        self.write_variables()
+        self.f_out.close()
+
+    @staticmethod
+    def create_dimension_entry(file_write, name, dimsize):
+        file_write.createDimension(name, dimsize)
+
+    @staticmethod
+    def create_variable_entry_empty(file_write, name, dimension, **kwargs):
+        var_write = file_write.createVariable(name, 'd', dimension)
+        for key, key_value in kwargs.items():
+            if key == 'value':
+                var_write[:] = key_value
+            if key == 'units':
+                var_write.units = key_value
+            if key == 'standard_name':
+                var_write.standard_name = key_value
+            if key == 'long_name':
+                var_write.long_name = key_value
+        return var_write
+
+    @staticmethod
+    def create_variable_entry(file_write, name, dimension, values, **kwargs):
+        var_write = file_write.createVariable(name, 'd', dimension)
+        var_write[:] = values
+        for key, key_value in kwargs.items():
+            if key == 'value':
+                var_write[:] = key_value
+            if key == 'units':
+                var_write.units = key_value
+            if key == 'standard_name':
+                var_write.standard_name = key_value
+            if key == 'long_name':
+                var_write.long_name = key_value
+        return var_write
+
+    def write_dimension_entries(self):
+        # Dimension entries
+        for dim_var in ['lat', 'lon', 'lev', 'time']:
+            if dim_var != 'time':
+                if dim_var == 'lev':
+                    self.create_dimension_entry(self.f_out, dim_var, len(var_in[dim_var]) + 1)
+                    self.create_variable_entry(self.f_out, dim_var, (dim_var,), np.arange(len(var_in[dim_var]) + 1),
+                                               units=f_meteo.variables[dim_var].units,
+                                               standard_name=f_meteo.variables[dim_var].name)
+                else:
+                    self.create_dimension_entry(self.f_out, dim_var, len(var_in[dim_var]))
+                    self.create_variable_entry(self.f_out, dim_var, (dim_var,), var_in[dim_var],
+                                               units=f_meteo.variables[dim_var].units,
+                                               standard_name=f_meteo.variables[dim_var].name)
             else:
-                var_tmp = np.squeeze(rad_out[step][nv])
-        dim_order = np.arange(len(var_tmp.shape))
-        var_tmp = np.moveaxis(var_tmp, dim_order[::-1], dim_order)
-        if step == 0:
-            if len(dim_order) == 2:
-                vars_output[var] = create_variable_entry_empty(f_out, var, ('time', 'lat', 'lon'),
-                                                               units=var_meta[var]['unit'],
-                                                               long_name=var_meta[var]['longname'])
-            if len(dim_order) == 3:
-                vars_output[var] = create_variable_entry_empty(f_out, var, ('time', 'lev', 'lat', 'lon'),
-                                                               units=var_meta[var]['unit'],
-                                                               long_name=var_meta[var]['longname'])
-        vars_output[var][step, :] = var_tmp
+                self.create_dimension_entry(self.f_out, dim_var, None)
+                self.vars_output['time'] = self.create_variable_entry_empty(self.f_out, dim_var, (dim_var,),
+                                                                            units=f_meteo.variables[dim_var].units)
+
+    def create_var_meta(self):
+        for var_out in self.var_out_list:
+            self.var_meta[var_out] = {}
+            if var_out == 'aps':
+                self.var_meta[var_out]['unit'] = 'Pa'
+            else:
+                self.var_meta[var_out]['unit'] = 'W m-2'
+
+        # Longname
+        self.var_meta['aps']['longname'] = 'surface pressure'
+        self.var_meta['sups']['longname'] = 'surface upward shortwave flux'
+        self.var_meta['supt']['longname'] = 'surface upward longwave flux'
+        self.var_meta['supsc']['longname'] = 'surface upward shortwave flux clear-sky'
+        self.var_meta['suptc']['longname'] = 'surface upward longwave flux clear-sky'
+        self.var_meta['tdws']['longname'] = 'TOA shortwave incomming irradiation'
+        self.var_meta['flt']['longname'] = 'longwave net flux'
+        self.var_meta['fls']['longname'] = 'shortwave net flux'
+        self.var_meta['fltc']['longname'] = 'longwave net flux clear-sky'
+        self.var_meta['flsc']['longname'] = 'shortwave net flux clear-sky'
+
+    def write_variables(self):
+        self.create_var_meta()
+        for step in np.arange(len(self.var_in['time'])):
+            self.vars_output['time'][step] = f_meteo.variables['time'][step]
+            for nv, var_write in enumerate(self.var_out_list):
+                if var_write == 'aps':
+                    var_tmp = self.var_in['aps'][:, :, step]
+                else:
+                    if len(self.rad_out) == len(self.var_out_list) - 1:
+                        var_tmp = np.squeeze(self.rad_out[nv][..., step])
+                    else:
+                        var_tmp = np.squeeze(self.rad_out[step][nv])
+                dimorder = np.arange(len(var_tmp.shape))
+                var_tmp = np.moveaxis(var_tmp, dimorder[::-1], dimorder)
+                if step == 0:
+                    if len(dimorder) == 2:
+                        self.vars_output[var_write] = \
+                            self.create_variable_entry_empty(self.f_out, var_write, ('time', 'lat', 'lon'),
+                                                             units=self.var_meta[var_write]['unit'],
+                                                             long_name=self.var_meta[var_write]['longname'])
+                    if len(dimorder) == 3:
+                        self.vars_output[var_write] = \
+                            self.create_variable_entry_empty(self.f_out, var_write, ('time', 'lev', 'lat', 'lon'),
+                                                             units=self.var_meta[var_write]['unit'],
+                                                             long_name=self.var_meta[var_write]['longname'])
+                self.vars_output[var_write][step, :] = var_tmp
+
+
+ofile = '../output/tmp.nc'
+OutputNetcdf(ofile, rad_out, var_in)
 
 exit()
