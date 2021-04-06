@@ -107,16 +107,16 @@ CONTAINS
     REAL(dp) :: pi
 
     ! 1D
-    INTEGER  :: ktype(lon)                                   ! type of convection, not used
+    INTEGER  :: ktype(lon)
     REAL(dp) :: zprat, zn1, zn2
     
     ! 2D / Land/sea and glacier masks
     LOGICAL  :: loland(lon,lat)
     LOGICAL  :: loglac(lon,lat)
-    REAL(dp) :: pgeom1(lon,nlev)                             ! geopotential above ground, not used
+    REAL(dp) :: pgeom1(lon,nlev)                             
 
     ! 3D
-    REAL(dp) :: pxtm1(lon,nlev,ntrac)                        ! tracer mass mixing ratios, not used
+    REAL(dp) :: pxtm1(lon,nlev,ntrac)                      
     
     ! 4D
     REAL(dp) :: qs(lon,lat,nlev,ntime)

@@ -38,7 +38,7 @@ def solar_zenith_angle_instanteous(time_in, lat_in, lon_in):
     return cos_zen
 
 
-# Import files needed to run the radiaiton code
+# Import files needed to run the radiation code
 input_data_path = '../data/'
 if not os.path.exists('echam_radiation.cpython-38-x86_64-linux-gnu.so'):
     os.system('ln -s ../build/echam_radiation.cpython-38-x86_64-linux-gnu.so .')

@@ -2,7 +2,7 @@
 # compiler and options
 # --------------------
 #
-NETCDF_ROOT   = /home/jkretzs/work/soft/netcdf/c-4.7.4_gfortran
+NETCDF_ROOT   = /home/jkretzs/work/soft/netcdf/current
 NETCDF_LIB     = -L$(NETCDF_ROOT)/lib -lnetcdff
 NETCDF_INCLUDE = -I$(NETCDF_ROOT)/include
 MPI_ROOT   = /home/jkretzs/work/soft/mpich/current
