@@ -156,4 +156,4 @@ radiation_prog.x :
 
 wrapper : 
 	${F2PY} ${F2PY_FLAGS}  -c ../src/echam_radiation_python_wrapper.f90 -m echam_radiation
-	cd ../bin;rm -f echam_radiation*;ln -s ../build/echam_radiation* .
+	cd ../bin;rm -f echam_radiation* *.nc; ln -s ../build/echam_radiation* .; ln -s ../data/* .

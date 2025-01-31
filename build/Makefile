@@ -28,4 +28,4 @@ wrapper: ${lib} ${wrapper}
 all: ${lib} ${programs} ${wrapper}
 clean    :
 	rm -f *.o *.so *.${MODEXT} ${programs}
-	cd ../bin;rm -f ${programs}
+	cd ../bin; rm -f ${programs} *.nc *.so

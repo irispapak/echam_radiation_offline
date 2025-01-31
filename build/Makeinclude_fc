@@ -2,15 +2,25 @@
 # compiler and options
 # --------------------
 #
-NETCDF_LIB     = -L/Users/jkretzs/anaconda3/envs/neuralgcm/lib -lnetcdff
-NETCDF_INCLUDE = -I/Users/jkretzs/anaconda3/envs/neuralgcm/include
-MPI_LIB = -L/Users/jkretzs/anaconda3/envs/neuralgcm/lib -lmpich
-MPI_INC = -I/Users/jkretzs/anaconda3/envs/neuralgcm/include
 
-FC=gfortran
-FCFLAGS =  -L/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/lib -fallow-argument-mismatch -g -O3 -cpp -fPIC -L/usr/lib ${NETCDF_LIB} ${NETCDF_INCLUDE} ${MPI_LIB} ${MPI_INC} -W
+# Set netcdf and mpi lib and include paths
+CONDA_BASE_PATH=/Users/jkretzs/anaconda3/envs/prp_combine
+NETCDF_LIB     = -L${CONDA_BASE_PATH}/lib -lnetcdff
+NETCDF_INCLUDE = -I${CONDA_BASE_PATH}/include
+MPI_LIB = -L${CONDA_BASE_PATH}/lib -lmpich
+MPI_INC = -I${CONDA_BASE_PATH}/include
 
-F2PY=/Users/jkretzs/anaconda3/envs/neuralgcm/bin/f2py
+# Binary of Fortran binary
+FC=${CONDA_BASE_PATH}/bin/gfortran
+
+# If you don't use MACOS, you might not need this. In this case, remove form FCFLAGS
+MACOS_SDK = -L/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/lib
+
+# Fortran compiler flags
+FCFLAGS = ${MACOS_SDK} -fallow-argument-mismatch -g -O2 -cpp -fPIC -L/usr/lib ${NETCDF_LIB} ${NETCDF_INCLUDE} ${MPI_LIB} ${MPI_INC} -W
+
+# F2PY binary and flags
+F2PY=${CONDA_BASE_PATH}/bin/f2py
 F2PY_FLAGS = --verbose  --debug --fcompiler=gnu95 --f2cmap ../src/.f2py_f2cmap -I. *.o ${NETCDF_LIB} ${NETCDF_INCLUDE} ${MPI_LIB} ${MPI_INC}
 
 # file name extension of module information files
