@@ -2,19 +2,16 @@
 # compiler and options
 # --------------------
 #
-NETCDF_ROOT   = /home/jkretzs/work/soft/netcdf/current
-NETCDF_LIB     = -L$(NETCDF_ROOT)/lib -lnetcdff
-NETCDF_INCLUDE = -I$(NETCDF_ROOT)/include
-MPI_ROOT   = /home/jkretzs/work/soft/mpich/current
-MPI_LIB = -L$(MPI_ROOT)/lib -lmpich
-MPI_INC = -I$(MPI_ROOT)/include
-
+NETCDF_LIB     = -L/Users/jkretzs/anaconda3/envs/neuralgcm/lib -lnetcdff
+NETCDF_INCLUDE = -I/Users/jkretzs/anaconda3/envs/neuralgcm/include
+MPI_LIB = -L/Users/jkretzs/anaconda3/envs/neuralgcm/lib -lmpich
+MPI_INC = -I/Users/jkretzs/anaconda3/envs/neuralgcm/include
 
 FC=gfortran
-FCFLAGS = -I/usr/include -g -O2 -cpp -fPIC -L/usr/lib ${NETCDF_LIB} ${NETCDF_INCLUDE} ${MPI_LIB} ${MPI_INC} -Wl,-rpath=${NETCDF_ROOT}/lib
+FCFLAGS =  -L/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/lib -fallow-argument-mismatch -g -O3 -cpp -fPIC -L/usr/lib ${NETCDF_LIB} ${NETCDF_INCLUDE} ${MPI_LIB} ${MPI_INC} -W
 
-F2PY=/home/jkretzs/anaconda3/envs/echam_rad/bin/f2py3
-F2PY_FLAGS = --debug --fcompiler=gnu95 --f2cmap ../src/.f2py_f2cmap -I. *.o ${NETCDF_LIB} ${NETCDF_INCLUDE} ${MPI_LIB} ${MPI_INC}
+F2PY=/Users/jkretzs/anaconda3/envs/neuralgcm/bin/f2py
+F2PY_FLAGS = --verbose  --debug --fcompiler=gnu95 --f2cmap ../src/.f2py_f2cmap -I. *.o ${NETCDF_LIB} ${NETCDF_INCLUDE} ${MPI_LIB} ${MPI_INC}
 
 # file name extension of module information files
 # -----------------------------------------------
