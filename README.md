@@ -12,15 +12,15 @@ some machines (e.g. on LIM/DKRZ servers). If not, those libraries can be install
 ### Using conda
 If you use conda, first set up an environment:
 
-`conda config --add channels confa-forge`
-
-`conda create --name prp_combine python=3.10 numpy netcdf-fortran gfortran mpich`
-
-`conda activate prp_combine`
+```bash
+conda env create -f environment.yml
+conda activate echam_radiation_offline
+```
 
 After installing the libraries, you need to give the path to your newly created environment in 
-`build/Makeinclude_fc`. For this you need to set `CONDA_BASE_PATH`. A `which python` can give you
-an idea of where this directory might be located (remove the `bin/python` at the end output of this command). 
+`build/Makeinclude_fc`. For this you need to set `CONDA_BASE_PATH`. To find this directory, 
+use a `which python` and remove the `bin/python` at the end output of this command). 
+
 
 ### Compilation
 To compile the Fortran code and the Python wrapper, change to the `build` directory and enter 

@@ -1,0 +1,10 @@
+name: echam_radiation_offline
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.10
+  - numpy
+  - netcdf-fortran
+  - gfortran
+  - mpich
