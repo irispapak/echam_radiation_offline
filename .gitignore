@@ -3,7 +3,6 @@
 *~
 *.x
 *.so
-data/*
 run/*
 pythonProject
 output
