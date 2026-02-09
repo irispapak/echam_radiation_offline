@@ -17,8 +17,8 @@ MODULE python_wrapper
 CONTAINS
 
   SUBROUTINE echam_radiation_offline(lat, lon, nlev, ntime, lolandh_in, loglach_in, xl_in, xi_in, &
-       & aclc_in, p0_in, rhumidity_in, cdnc_in, t_surf_in, albedo_in, t_in, q_in, ao3_in, geosp_in, &
-       & mu0_in, pf, ph, cdnc_cal, sups, supt, suptc, supsc, tdws, flt, fls, fltc, flsc)
+       & aclc_in, p0_in, rhumidity_in, cdnc_in, icnc_in, t_surf_in, albedo_in, t_in, q_in, ao3_in, geosp_in, &
+       & mu0_in, pf, ph, cdnc_cal, icnc_cal, sups, supt, suptc, supsc, tdws, flt, fls, fltc, flsc)
 
     ! Dimensions of input data
     INTEGER, INTENT(in)   :: lat
@@ -27,7 +27,7 @@ CONTAINS
     INTEGER, INTENT(in)   :: ntime
 
     ! Logical input
-    LOGICAL, INTENT(in)   :: cdnc_cal
+    LOGICAL, INTENT(in)   :: cdnc_cal, icnc_cal
     
     ! 2D input
     REAL(dp), INTENT(in)  :: lolandh_in(lon,lat)             ! Land-Sea fraction
@@ -38,14 +38,15 @@ CONTAINS
     REAL(dp), INTENT(in) :: t_surf_in(lon,lat,ntime)         ! temperature at the surface (K)
     REAL(dp), INTENT(in) :: albedo_in(lon,lat,ntime)         ! SW surface albedo
     REAL(dp), INTENT(in) :: geosp_in(lon,lat,ntime)          ! Surface geopotential (presently not used)
-    REAL(dp), INTENT(in) :: mu0_in(lon,lat,ntime)               ! Cosine of solar zenith angle
+    REAL(dp), INTENT(in) :: mu0_in(lon,lat,ntime)            ! Cosine of solar zenith angle
 
     ! 4D input
     REAL(dp), INTENT(in) :: xl_in(lon,lat,nlev,ntime)        ! liquid water mixing ratio (kg/kg)
     REAL(dp), INTENT(in) :: xi_in(lon,lat,nlev,ntime)        ! ice mixing ratio (kg/kg)
     REAL(dp), INTENT(in) :: aclc_in(lon,lat,nlev,ntime)      ! cloud cover fraction
-    REAL(dp), INTENT(in) :: rhumidity_in(lon,lat,nlev,ntime) ! relativ humidity
+    REAL(dp), INTENT(in) :: rhumidity_in(lon,lat,nlev,ntime) ! relative humidity
     REAL(dp), INTENT(in), OPTIONAL :: cdnc_in(lon,lat,nlev,ntime)      ! cloud cond. nuclei (m^-3)
+    REAL(dp), INTENT(in), OPTIONAL :: icnc_in(lon,lat,nlev,ntime)      ! ice crystal number concentration (m^-3)
     REAL(dp), INTENT(in) :: t_in(lon,lat,nlev,ntime)         ! temperature (K)
     REAL(dp), INTENT(in) :: q_in(lon,lat,nlev,ntime)         ! water vapor mixing ratio (kg/kg)
     REAL(dp), INTENT(in) :: ao3_in(lon,lat,nlev,ntime)       ! O3 mass mixing ratio (kg/kg)
@@ -136,7 +137,8 @@ CONTAINS
     REAL(dp) :: aclcac(lon,lat,nlev,ntime)    
     REAL(dp) :: mu0(lon,lat,ntime)            
     REAL(dp) :: rhumidity(lon,lat,nlev,ntime) 
-    REAL(dp) :: cdnc(lon,lat,nlev,ntime)      
+    REAL(dp) :: cdnc(lon,lat,nlev,ntime)
+    REAL(dp) :: icnc(lon,lat,nlev,ntime)
     REAL(dp) :: q(lon,lat,nlev,ntime)
     
     ! Initialize some variables
@@ -221,6 +223,14 @@ CONTAINS
        END DO
     END IF
 
+   ! if icnc is given
+   IF (.NOT. icnc_cal ) THEN
+      icnc(:,:,:,:)=MAX(icnc_in(:,:,:,:),EPSILON(0._dp))
+   ! else set it to zero 
+   ELSE
+      icnc(:,:,:,:)=0._dp
+   END IF
+   
     ! Initialize greenhouse gases and aerosols
     co2(:,:,:,:) = co2mmr
     ch4(:,:,:,:) = ch4mmr
@@ -282,7 +292,8 @@ CONTAINS
                & albedo_in(:,krow,i)       ,albedo_in(:,krow,i)       ,albedo_in(:,krow,i)   ,albedo_in(:,krow,i)    ,&
                & pf(:,krow,:,i)            ,ph(:,krow,:,i)            ,p0_in(:,krow,i)       ,t_in(:,krow,:,i)       ,&
                & th(:,krow,:,i)            ,t_surf_in(:,krow,i)       ,q(:,krow,:,i)         ,qs(:,krow,:,i)         ,&
-               & xl(:,krow,:,i)            ,xi(:,krow,:,i)            ,cdnc(:,krow,:,i)      ,aclcac(:,krow,:,i)     ,&
+               & xl(:,krow,:,i)            ,xi(:,krow,:,i)            ,cdnc(:,krow,:,i)      ,icnc(:,krow,:,i)       ,&
+               & aclcac(:,krow,:,i)     ,&
                & aclcov(:,krow,i)          ,ao3(:,krow,:,i)           ,co2(:,krow,:,i)       ,ch4(:,krow,:,i)        ,&
                & n2o(:,krow,:,i)           ,cfc(:,krow,:,:,i)         ,o2(:,krow,:,i)        ,pxtm1                  ,&
                & flt(:,krow,:,i)           ,fls(:,krow,:,i)           ,fltc(:,krow,:,i)      ,flsc(:,krow,:,i)       ,&

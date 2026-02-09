@@ -4,7 +4,8 @@
 #
 
 # Set netcdf and mpi lib and include paths
-CONDA_BASE_PATH=/Users/jkretzs/anaconda3/envs/prp_combine
+#CONDA_BASE_PATH=${CONDA_BASE_PATH}
+#/Users/jkretzs/anaconda3/envs/prp_combine
 NETCDF_LIB     = -L${CONDA_BASE_PATH}/lib -lnetcdff
 NETCDF_INCLUDE = -I${CONDA_BASE_PATH}/include
 MPI_LIB = -L${CONDA_BASE_PATH}/lib -lmpich

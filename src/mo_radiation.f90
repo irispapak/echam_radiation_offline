@@ -279,7 +279,7 @@ CONTAINS
 !       & ,alb_nir_dir       ,alb_vis_dif     ,alb_nir_dif      ,tk_sfc        &
 !       & ,pp_hl             ,pp_fl           ,tk_fl            ,qm_vap        &
 !       & ,qm_liq            ,qm_ice          ,pgeom1           ,co2           &
-!       & ,cdnc              ,cld_frc         ,pxtm1            ,cld_cvr       &
+!       & ,cdnc              ,cld_frc          ,pxtm1           ,cld_cvr       &
 !       & ,nir_sfc           ,nir_dff_sfc     ,vis_sfc          ,vis_dff_sfc   &
 !       & ,dpar_sfc          ,par_dff_sfc     ,emter_toa        ,trsol_toa     &
 !       & ,emter_sfc         ,trsol_sfc       ,emter            ,trsol         &
@@ -637,7 +637,8 @@ CONTAINS
        & alb_vis_dir     ,alb_nir_dir     ,alb_vis_dif     ,alb_nir_dif     ,&
        & pp_fl           ,pp_hl           ,pp_sfc          ,tk_fl           ,&
        & tk_hl           ,tk_sfc          ,xm_vap          ,xm_sat          ,&
-       & xm_liq          ,xm_ice          ,cdnc            ,cld_frc         ,&
+       & xm_liq          ,xm_ice          ,cdnc            ,icnc            ,&
+       & cld_frc         ,&
        & cld_cvr         ,xm_o3           ,xm_co2          ,xm_ch4          ,&
        & xm_n2o          ,xm_cfc          ,xm_o2           ,pxtm1           ,&
        & flx_lw_net      ,flx_sw_net      ,flx_lw_net_clr  ,flx_sw_net_clr  ,&
@@ -684,6 +685,7 @@ CONTAINS
          xm_liq(kbdim,klev),           & !< specific liquid water content
          xm_ice(kbdim,klev),           & !< specific ice content in g/g
          cdnc(kbdim,klev),             & !< cloud nuclei concentration
+         icnc(kbdim,klev),             & !< ice crystal number concentration
          cld_frc(kbdim,klev),          & !< fractional cloud cover
          cld_cvr(kbdim),               & !< total cloud cover in m2/m2
          xm_o3(kbdim,klev),            & !< o3 mass mixing ratio
@@ -744,6 +746,7 @@ CONTAINS
          tk_fl_vr(kbdim,klev),            & !< full level temperature [K]
          tk_hl_vr(kbdim,klev+1),          & !< half level temperature [K]
          cdnc_vr(kbdim,klev),             & !< cloud nuclei concentration
+         icnc_vr(kbdim,klev),             & !< ice crystal number concentration
          cld_frc_vr(kbdim,klev),          & !< secure cloud fraction
          ziwgkg_vr(kbdim,klev),           & !< specific ice water content
          ziwc_vr(kbdim,klev),             & !< ice water content per volume
@@ -832,6 +835,7 @@ CONTAINS
         zlwc_vr(jl,jk) = zlwgkg_vr(jl,jk)*zscratch/rd
         zlwp_vr(jl,jk) = zlwgkg_vr(jl,jk)*delta/g
         cdnc_vr(jl,jk) = cdnc(jl,jkb)*1.e-6_wp
+        icnc_vr(jl,jk) = icnc(jl,jkb)*1.e-6_wp
         !
         ! --- radiatively active gases
         !
@@ -908,8 +912,9 @@ CONTAINS
            & laglac          ,laland          ,kproma          ,kbdim          ,&
            & klev            ,ktype           ,jpband          ,nb_sw          ,&
            & icldlyr         ,zlwp_vr         ,ziwp_vr         ,zlwc_vr        ,&
-           & ziwc_vr         ,cdnc_vr         ,cld_tau_lw_vr   ,cld_tau_sw_vr  ,&
-           & cld_piz_sw_vr   ,cld_cg_sw_vr    ,re_drop         ,re_cryst       )
+           & ziwc_vr         ,cdnc_vr         ,icnc_vr         ,cld_tau_lw_vr  ,&
+           & cld_tau_sw_vr   ,cld_piz_sw_vr   ,cld_cg_sw_vr    ,re_drop        ,&
+           & re_cryst       )
     ELSE       
       CALL cloud_optics(                                                        &
            & laglac          ,laland          ,kproma          ,kbdim          ,&

@@ -1,50 +1,36 @@
-# ECHAM6 Standalone Radiative Transfer Code
+# ECHAM6 standalone radiation code 
+This repository contains code to run the ECHAM6 radiative transfer offline. It mostly consists of Fortran code that has been copied from the model source code and has only been slightly adapted to run without the host model. There are two options to interface the radiative transfer code, one directly via a Fortran and one via a Python wrapper into the Fortran source code. It nevertheless is strongly recommended to use the Python wrapper.
 
-This repository provides a standalone implementation of the **ECHAM6 radiative transfer model**. By decoupling the radiation code from the full host GCM (General Circulation Model), it allows for efficient offline simulations and sensitivity studies.
+## Installation
+The FORTRAN code has to be compiled with the netCDF and the MPICH library. They should be present on some machines (e.g. on LIM/DKRZ servers). If not, those libraries can be installed via conda.
 
-## Architecture
+### Using conda
+If you use conda, first set up an environment:
 
-The project employs a hybrid architecture:
-- **Core Engine**: The original ECHAM6 Fortran source code, slightly adapted for standalone operation.
-- **Interfaces**:
-  - **Fortran Interface**: Direct interaction with the source code.
-  - **Python Wrapper (Recommended)**: A Python interface that facilitates ease of use, data handling, and integration into broader analysis pipelines.
-
-## Installation and Compilation
-
-### Prerequisites
-The code requires the following libraries:
-- **NetCDF**: For atmospheric input/output data.
-- **MPICH**: For parallelized computations.
-
-### Setup (Conda)
 ```bash
 conda env create -f environment.yml
 conda activate echam_radiation_offline
 ```
 
+After installing the libraries, you need to give the path to your newly created environment in `build/Makeinclude_fc`. For this you need to set `CONDA_BASE_PATH`. To find this directory, use a `which python` and remove the `bin/python` at the end output of this command). 
+
 ### Compilation
-Configure the compiler paths in `build/Makeinclude_fc` (setting `CONDA_BASE_PATH`), then:
-```bash
-cd build
-make clean && make all
-```
+To compile the Fortran code and the Python wrapper, change to the `build` directory and enter `make clean && make all`.
 
-## Running the Model
+## Running the Python wrapper
+An example of how to use the Python wrapper can be found in `scripts/prp_python.py`. The following variables are needed to run the radiative transfer code:
 
-Example usage can be found in `scripts/prp_python.py`. 
-
-### Required Input Variables
-To run the radiative transfer, you need to provide vertical profiles and surface fields for:
 - Surface pressure & temperature
 - Air temperature & specific humidity
+- Relative humidity & cloud cover (3D)
 - Cloud water & cloud ice (LWC/IWC)
-- Cloud cover (3D) & relative humidity
-- Ozone concentration & surface albedo
-- Land-sea and glacier masks
+- Surface albedo & ozone concentration
+- Land-sea & glacier masks 
 
-### Cloud Microphysics Note
-If cloud droplet number concentration (CDNC) is unavailable, the code can calculate it internally (`cdnc_cal = True`) using the default ECHAM6 profiles.
+Furthermore, the pressure (`pf`) of the midpoints of the vertical levels, as well as the pressure at the interfaces of the vertical levels (`ph`) is needed.
 
-## Documentation
-Additional technical details are available in the `documentation/` directory.
+### Cloud number concentrations
+- `acdnc` (cloud droplet number concentration) can be provided; if missing, set `cdnc_cal = True` to compute it from the default ECHAM6 profile.
+- `aicnc` (ice crystal number concentration) can also be provided; if missing, set `icnc_cal = True` and it will be set to zero internally.
+
+When `aicnc` is provided, the radiation code uses interactive effective radii for liquid and ice based on number concentration and water content (see `mo_newcld_optics.f90`).

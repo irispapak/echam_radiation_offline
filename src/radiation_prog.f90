@@ -78,6 +78,7 @@ PROGRAM radiation
   REAL(dp) :: rhumidity(lon,lat,nlev,ntime)	! relativ humidity
 
   REAL(dp) :: cdnc(lon,lat,nlev,ntime)  	! cloud cond. nuclei
+  REAL(dp) :: icnc(lon,lat,nlev,ntime)  	! ice crystal number concentration
   REAL(dp) :: aclcac(lon,lat,nlev,ntime)	! m2/m2, cloud cover fraction
   REAL(dp) :: aclc(lon,lat,nlev,ntime)		! m2/m2, cloud cover fraction
   REAL(dp) :: aclcov(lon,lat,ntime)     	! m2/m2, total cloud cover from file
@@ -236,14 +237,19 @@ PROGRAM radiation
   ! read rel. humidity to calculate saturation specific humidity
 
   CALL read_nc (infile, lon, lat, nlev, ntime, xlon, xlat, ilev, xtime, 'rhumidity',rhumidity)
-  rhumidity(:,:,:,:)=max(rhumidity(:,:,:,:),EPSILON(0._dp)) ! set negativ values to EPSILON(1.)
+  rhumidity(:,:,:,:)=max(rhumidity(:,:,:,:),EPSILON(0._dp)) ! set negative values to EPSILON(1.)
 
   ! read cloud droplet number concentration
 
   CALL read_nc (infile, lon, lat, nlev, ntime, xlon, xlat, ilev, xtime, 'acdnc',cdnc)
-  cdnc(:,:,:,:)=max(cdnc(:,:,:,:),EPSILON(0._dp)) ! set negativ values to EPSILON(1.)
+  cdnc(:,:,:,:)=max(cdnc(:,:,:,:),EPSILON(0._dp)) ! set negative values to EPSILON(1.)
 
-   
+  ! read ice crystal number concentration
+
+  CALL read_nc (infile, lon, lat, nlev, ntime, xlon, xlat, ilev, xtime, 'aicnc',icnc)
+  icnc(:,:,:,:)=max(icnc(:,:,:,:),EPSILON(0._dp)) ! set negative values to EPSILON(1.)
+
+
   ! read albedo
 
   CALL read_nc3 (infile, lon, lat, 1, xlon, xlat, xtime,  'albedo',albedoo)
@@ -599,7 +605,8 @@ print *,'-------------------------------------------'
          & albedo(:,krow,i)          ,albedo(:,krow,i)          ,albedo(:,krow,i)      ,albedo(:,krow,i)       ,&
          & pf(:,krow,:,i)            ,ph(:,krow,:,i)            ,psrf(:,krow,i)        ,tf(:,krow,:,i)         ,&
          & th(:,krow,:,i)            ,tsrf(:,krow,i)            ,q(:,krow,:,i)         ,qs(:,krow,:,i)         ,&
-         & xl(:,krow,:,i)            ,xi(:,krow,:,i)            ,cdnc(:,krow,:,i)      ,aclcac(:,krow,:,i)     ,&
+         & xl(:,krow,:,i)            ,xi(:,krow,:,i)            ,cdnc(:,krow,:,i)      ,icnc(:,krow,:,i)       ,&
+         & aclcac(:,krow,:,i)     ,&
          & aclcov(:,krow,i)          ,ao3(:,krow,:,i)           ,co2(:,krow,:,i)       ,ch4(:,krow,:,i)        ,&
          & n2o(:,krow,:,i)           ,cfc(:,krow,:,:,i)         ,o2(:,krow,:,i)        ,pxtm1                  ,&
          & flt(:,krow,:,i)           ,fls(:,krow,:,i)           ,fltc(:,krow,:,i)      ,flsc(:,krow,:,i)       ,&

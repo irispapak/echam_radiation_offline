@@ -40,17 +40,17 @@
 !
 MODULE mo_newcld_optics
 
-  USE mo_kind,      ONLY: wp
-  USE mo_constants, ONLY: api,rhoh2o
-!  USE mo_mpi,       ONLY: p_parallel_io, p_io, p_bcast
-  USE mo_netcdf,    ONLY: io_inq_varid, io_get_vara_double
-  USE mo_io,        ONLY: io_open, io_close, io_read, file_info  
-!  USE mo_exception, ONLY: finish
+  USE mo_kind,                ONLY: wp
+  USE mo_constants,           ONLY: api,rhoh2o
+!  USE mo_mpi,                ONLY: p_parallel_io, p_io, p_bcast
+  USE mo_netcdf,              ONLY: io_inq_varid, io_get_vara_double
+  USE mo_io,                  ONLY: io_open, io_close, io_read, file_info  
+!  USE mo_exception,          ONLY: finish
 
   IMPLICIT NONE
   PRIVATE
   PUBLIC :: setup_newcld_optics, newcld_optics
-
+     
   INTEGER, PARAMETER :: &
        n_mdl_bnds = 30, &!< n of bands in effective radius table
        n_sizes    = 61   !< n of bands in effective radius table
@@ -73,6 +73,7 @@ MODULE mo_newcld_optics
        &  0.0052_wp, 0.0050_wp, 0.0048_wp, 0.0048_wp /)
 
   LOGICAL, SAVE   :: l_variable_inhoml = .TRUE.
+  LOGICAL :: calc_reff_inter = .TRUE.
 
   REAL (wp), SAVE :: &
        zinpar,       & !< exponent for variable lquid-cloud inhomogeneity
@@ -98,13 +99,14 @@ MODULE mo_newcld_optics
        z_asy_l(n_sizes, n_mdl_bnds), & !< tabulated asymmetry liquid
        z_asy_i(n_sizes, n_mdl_bnds)    !< tabulated asymmetry ice
 
-  TYPE(file_info) :: optical_tbl
-
+  TYPE(file_info) :: optical_tbl                                                                                                                                        
+                        
 CONTAINS
   !-----------------------------------------------------------------------------
   !>
   !! @brief sets resolution dependent parameters for cloud optics
   !
+
   SUBROUTINE setup_newcld_optics
 
     INTEGER :: varID
@@ -190,8 +192,9 @@ CONTAINS
           & laglac       ,laland          ,kproma         ,kbdim         ,&
           & klev         ,ktype           ,nb_lw          ,nb_sw         ,&
           & icldlyr      ,zlwp            ,ziwp           ,zlwc          ,&
-          & ziwc         ,zcdnc           ,tau_lw         ,tau_sw        ,&
-          & omg          ,asy             ,re_droplets2d  ,re_crystals2d  )
+          & ziwc         ,zcdnc           ,zicnc          ,tau_lw        ,&
+          & tau_sw       ,omg             ,asy            ,re_droplets2d ,&
+          &re_crystals2d  )
 
     INTEGER, INTENT (IN)    :: &
          kproma,               & !< actual length of grid point block
@@ -208,6 +211,7 @@ CONTAINS
          zlwp(kbdim,klev),     & !< liquid water path
          ziwp(kbdim,klev),     & !< ice water path
          zcdnc(kbdim,klev),    & !< cloud drop number concentration
+         zicnc(kbdim,klev),     & !< ice crystal number concentration
          zlwc(kbdim,klev),     & !< liquid water content
          ziwc(kbdim,klev)        !< ice water content
 
@@ -276,10 +280,29 @@ CONTAINS
       DO jl=1,kproma
         IF (icldlyr(jl,jk)==1 .AND. (zlwp(jl,jk)+ziwp(jl,jk))>ccwmin) THEN
           
-          re_crystals = MAX(reimin,MIN(reimax,83.8_wp*ziwc(jl,jk)**0.216_wp))
-          re_droplets = MAX(relmin,MIN(relmax,zfact*zkap(jl)*(zlwc(jl,jk)    &
-               &                             /zcdnc(jl,jk))**(1.0_wp/3.0_wp)))
-          
+
+          !--------- jkretzs: Calculate the effetive radius with interactive CDNC/INC or as it was originally       
+          !IF( atm_phy_nwp_config(jg)%luse_2momrad .AND. (ANY((/4,5/) ==  atm_phy_nwp_config(jg)%inwp_gscp ))) THEN
+          IF (calc_reff_inter) THEN
+             IF ( zcdnc(jl,jk) > 0.0_wp ) THEN
+                re_droplets = MAX(relmin,MIN(relmax,re_sb(zcdnc(jl,jk)*1.0e6_wp,zlwc(jl,jk)/1.0e3_wp,1)*1.0e6_wp ))
+             ELSE
+                re_droplets = relmin
+             END IF
+             IF ( zicnc(jl,jk) > 0.0_wp ) THEN
+                re_crystals = MAX(reimin,MIN(reimax,re_sb(zicnc(jl,jk)*1.0e6_wp,ziwc(jl,jk)/1.0e3_wp,2)*1.0e6_wp ))
+             ELSE
+                re_crystals = reimin
+             END IF
+          ELSE
+             re_crystals = MAX(reimin ,MIN(reimax,83.8_wp*ziwc(jl,jk)**0.216_wp))
+             re_droplets = MAX(relmin,MIN(relmax,zfact*zkap(jl)*(zlwc(jl,jk)  &
+               &                              /zcdnc(jl,jk))**(1.0_wp/3.0_wp)))
+          END IF
+          !---------
+         
+          !WRITE(*,*)'ice',re_crystals
+          !WRITE(*,*)'liquid',re_droplets
           re_crystals2d(jl,jk) = re_crystals
           re_droplets2d(jl,jk) = re_droplets
 
@@ -332,5 +355,56 @@ CONTAINS
     END DO
 
   END SUBROUTINE newcld_optics
+ 
+ !------- jkretzs: function to calculate effective radius using the parameters of the gamma
+ !-------          distribution as used in Seifert-Beheng 2 moment microphysics 
+ !------- iripapak: adaptation to read information from particle assign about a_geo, b_geo etc.
+
+ REAL(wp) FUNCTION re_sb(nc, cwc, h_type)
+
+     IMPLICIT NONE
+     ! input
+     
+     REAL(wp), INTENT(IN) :: nc         ! (ice/droplet) number concentration of the respective hydrometeor type
+     REAL(wp), INTENT(IN) :: cwc        ! (ice/liquid) water content
+     INTEGER, INTENT(IN) :: h_type      ! hydrometeor type (1: liquid, 2: ice)
+     !INTEGER, INTENT(IN) :: nu, mu
+     
+     !! cloud droplets
+     ! REAL(wp) ::   nu = 1.000000, & !..first shape parameter of size distribution                                                                                        
+     !               mu = 1.000000, & !..2nd shape parameter                                                                                       
+     !               x_max = 2.60d-10, & ! ..max mean particle mass                                                                              
+     !               x_min =  4.20d-15, &  !..min mean particle mass                                                                         
+     !               a_geo =  1.24d-01, & !..pre-factor in diameter-mass relation                                                                                          
+     !               b_geo =  0.333333, &  !..exponent in diameter-mass relation                                                                                           
+ 
+     !! ice crystals
+     !REAL(wp) ::    nu = 0.000000, &         !..first shape parameter of size distribution                                                                        
+     !               mu = 0.333333, &        !..2nd shape parameter                                                                                     
+     !               x_max = 1.00d-05, &         ! ..max mean particle mass                                                                            
+     !               x_min =   1.00d-12, &        !..min mean particle mass                                                                         
+     !               a_geo = 0.835000, &       !..pre-factor in diameter-mass relation                                                                                             
+     !               b_geo = 0.390000           &  !..exponent in diameter-mass relation                                                                           
+
+     REAL(wp) :: a_geo, b_geo                                       
+
+     IF (h_type == 1) THEN ! cloud droplets
+          a_geo = 1.24d-01
+          b_geo = 0.333333
+     !     nu = 1.000000
+     !     mu = 1.000000
+     ELSE                  ! ice crystals
+          a_geo = 0.835000
+          b_geo = 0.390000  
+     !     nu = 0.000000
+     !     mu = 0.333333
+     ENDIF
+
+     re_sb = a_geo * (cwc/nc)**b_geo
+
+     !re_sb = ((gamma((nu+1._wp)/mu)/gamma((nu+2._wp)/mu))**b_geo) * (a_geo/2._wp)*&
+     !      & ((cwc/nc)**b_geo)*(gamma((nu+1._wp+3._wp*b_geo)/mu)/gamma((nu+1._wp+2._wp*b_geo)/mu))
+
+  END FUNCTION re_sb
 
 END MODULE mo_newcld_optics
